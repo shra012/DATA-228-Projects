@@ -11,7 +11,7 @@ init:
 
 # 2) Download via curl and put to HDFS (/raw/*)
 fetch:
-	bash bin/fetch_and_put.sh "" "" "" "$(DATE)"
+	bash bin/fetch_and_put.sh "" "" "" ""
 
 # 3) Run only data_prep (uses RAW variable)
 data_prep:

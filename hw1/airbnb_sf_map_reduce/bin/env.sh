@@ -24,4 +24,4 @@ export HSTREAM_JAR=${HADOOP_HOME}/share/hadoop/tools/lib/hadoop-streaming-*.jar
 export COUNTRY_DEFAULT="united-states"
 export STATE_DEFAULT="ca"
 export COUNTY_DEFAULT="san-francisco"
-export DATE_DEFAULT="$(date +%F)"
+export DATE_DEFAULT="$(date +%Y-%m-01)"
