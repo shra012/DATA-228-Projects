@@ -11,6 +11,10 @@ It demonstrates how to:
 The project is designed for **step-by-step execution** via `make`, and can process **listings, reviews, calendar, or all raw data**.
 
 ---
+## Project Set Up
+Follow the instructions in the [SETUP.md](./SETUP.md) file
+
+---
 
 ## 📂 Project Organization
 
