@@ -1,0 +1,7 @@
+data/
+logs/
+tmp/
+config/env.local
+__pycache__/
+*.pyc
+.DS_Store
