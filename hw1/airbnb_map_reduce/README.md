@@ -1,4 +1,4 @@
-# Airbnb SF MapReduce Project
+# Airbnb MapReduce Project
 
 ## 📌 Overview
 This project implements a small **MapReduce data pipeline** on Airbnb datasets using **Hadoop Streaming** with Python mappers and reducers.  
@@ -107,7 +107,7 @@ Subdirectories:
   make rank    # ranks neighborhoods by budget supply
   ```
 
-5. **Cross-file analytics (new)**
+5. **Cross-file analytics**
    ```bash
    make reviews_by_nb  # listings ⨝ reviews → total reviews per neighbourhood
    make occupancy      # listings ⨝ calendar → booked/total days per neighbourhood
