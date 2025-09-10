@@ -138,20 +138,72 @@ Subdirectories:
 
 ## 📊 Outputs
 
-- **Cleaned Listings (`clean_listings/`)**  
-  Raw CSV → normalized and filtered.
-
-- **Average by Neighborhood & Room Type (`avg_by_nb_rt/`)**  
-  Example output row:  
+- **Cleaned Listings (`clean_listings/`)**: normalized TSV with 11 columns  
+  Schema: `listing_id  neighbourhood  room_type  price  min_nights  num_reviews  baths  bedrooms  beds  avail_30  avail_365`  
+  Example:  
   ```
-  Mission District, Entire home/apt, 187.35
+  12345678	mission district	Entire home/apt	187.35	2	57	1.0	1.0	1.0	10	120
   ```
 
-- **Budget Supply (`budget_supply/`)**  
-  Flags listings under a defined budget threshold.
+- **Cleaned Reviews (`clean_reviews/`)**: compact TSV for joins  
+  Schema: `listing_id  date  yyyy-mm`  
+  Example:  
+  ```
+  12345678	2023-09-10	2023-09
+  ```
 
-- **Budget Supply Ranked (`budget_supply_ranked/`)**  
-  Produces ranking of neighborhoods by number of budget listings.
+- **Cleaned Calendar (`clean_calendar/`)**: compact TSV for joins and rollups  
+  Schema: `listing_id  date  is_available(0/1)  price_or_blank`  
+  Example:  
+  ```
+  12345678	2023-09-10	0	175.00
+  ```
+
+- **Average by Neighborhood & Room Type (`avg_by_nb_rt/`)**: average price and count  
+  Schema: `neighbourhood  room_type  avg_price  count`  
+  Example:  
+  ```
+  mission district	Entire home/apt	187.35	42
+  ```
+
+- **Budget Supply (`budget_supply/`)**: count of budget, short-stay listings per neighbourhood  
+  Budget rule: `price <= 150` and `min_nights <= 7`  
+  Schema: `neighbourhood  count`  
+  Example:  
+  ```
+  mission district	421
+  ```
+
+- **Budget Supply Ranked (`budget_supply_ranked/`)**: neighbourhoods sorted by budget supply (desc)  
+  Schema: `neighbourhood  count`  
+  Example:  
+  ```
+  mission district	421
+  ```
+
+- **Reviews by Neighbourhood (`reviews_by_neighbourhood/`)**: total review events per neighbourhood  
+  Pipeline: clean_listings ⨝ clean_reviews → sum  
+  Schema: `neighbourhood  total_reviews`  
+  Example:  
+  ```
+  mission district	1245
+  ```
+
+- **Calendar Rollup Per Listing (`calendar_rollup_per_listing/`)**: booked/total days per listing  
+  Pipeline: from clean_calendar → per-listing rollup  
+  Schema: `listing_id  booked_days  total_days`  
+  Example:  
+  ```
+  12345678	183	365
+  ```
+
+- **Occupancy by Neighbourhood (`occupancy_by_neighbourhood/`)**: booked/total days per neighbourhood  
+  Pipeline: clean_calendar → per-listing rollup ⨝ clean_listings → sum  
+  Schema: `neighbourhood  booked_days  total_days`  
+  Example:  
+  ```
+  mission district	305412	512340
+  ```
 
 ---
 
@@ -161,11 +213,12 @@ Subdirectories:
 |---------------------|-----------------------------------------------------------------------------|
 | `make init`         | Initialize HDFS directory tree                                              |
 | `make fetch`        | Download & upload raw InsideAirbnb data                                     |
+| `make check`        | Verify required HDFS raw inputs exist for the chosen RAW                    |
 | `make data_prep`    | Clean listings only (use `prep_reviews`/`prep_calendar` for others)        |
 | `make avg`          | Compute average price per neighborhood × room type                          |
 | `make budget`       | Identify budget supply                                                      |
 | `make rank`         | Rank budget supply                                                          |
-| `make all`          | Run the full pipeline (init → fetch → data_prep → avg → budget → rank)      |
+| `make all`          | Run the pipeline (preflight only; no init/fetch)                             |
 | `make quick`        | Shortcut: data_prep + avg                                                   |
 | `make reviews_by_nb`| Listings ⨝ reviews → total reviews per neighbourhood                        |
 | `make occupancy`   | Listings ⨝ calendar → booked/total days per neighbourhood                    |
