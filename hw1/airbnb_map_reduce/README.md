@@ -232,3 +232,4 @@ Subdirectories:
 - **Reproducible workflow**: via `make` targets and standardized HDFS layout.  
 - **Flexible inputs**: you can process *listings*, *reviews*, *calendar*, or *all* raw files.  
 - **Extensible design**: adding new jobs is as simple as dropping mapper/reducer scripts under `jobs/` and wiring them in `run.sh`/`run_all.sh`.
+- **Document and Links**: The whole process is documented in [./docs/report.pdf](./docs/report.pdf) and there is a private [docx](https://docs.google.com/document/d/13d5YImR53aLNXcinB44BCTC10fqL6-DEStK0sfLFfk4/edit?tab=t.0) version.
