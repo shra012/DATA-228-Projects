@@ -1,4 +1,4 @@
-# Airbnb SF MapReduce Project
+# Airbnb MapReduce Project
 
 ## 📌 Overview
 This project implements a small **MapReduce data pipeline** on Airbnb datasets using **Hadoop Streaming** with Python mappers and reducers.  
