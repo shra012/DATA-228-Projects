@@ -33,12 +33,43 @@ submit_job() {
   echo
 }
 
+# Supports multiple -input paths (pass inputs as an array-like string: path1::path2::path3)
+submit_job_multi_input() {
+  local job_key="$1" job_name="$2" mapper_path="$3" reducer_path="$4" input_paths_joined="$5" output_path="$6"
+
+  hdfs dfs -rm -r -skipTrash "${output_path}" >/dev/null 2>&1 || true
+
+  local ts="$(date +%F_%H%M%S)"
+  local main_log="${LOGS_DIR}/${job_key}_${ts}.log"
+
+  IFS='::' read -r -a inputs <<<"${input_paths_joined}"
+  local input_flags=()
+  for p in "${inputs[@]}"; do
+    [[ -n "$p" ]] && input_flags+=( -input "$p" )
+  done
+
+  log "Running ${job_key} (${job_name}) with ${#input_flags[@]} inputs"
+  hadoop jar ${HSTREAM_JAR} \
+    -D mapreduce.job.name="${job_name}" \
+    -D mapreduce.job.reduces=1 \
+    -files "${mapper_path},${reducer_path}" \
+    -mapper "python3 $(basename "${mapper_path}")" \
+    -reducer "python3 $(basename "${reducer_path}")" \
+    "${input_flags[@]}" \
+    -output "${output_path}" |&
+    tee "${main_log}"
+
+  log "Driver log saved: ${main_log}"
+  echo
+}
+
 usage() {
   cat <<EOF
-Usage: $0 {data_prep|avg_by_nb_rt|budget_supply|budget_supply_ranked} [--input=listings|reviews|calendar|all]
+Usage: $0 {data_prep|avg_by_nb_rt|budget_supply|budget_supply_ranked|prep_reviews|prep_calendar|join_listings_reviews|agg_nb_counts|cal_rollup_per_listing|join_listings_calendar|agg_occupancy_by_nb} [--input=listings|reviews|calendar|all]
 
 Notes:
   --input (or -i) applies only to 'data_prep'. Default: listings
+  Use 'prep_reviews' and 'prep_calendar' to clean the other raw datasets.
     listings  -> ${HDFS_RAW}/listings
     reviews   -> ${HDFS_RAW}/reviews
     calendar  -> ${HDFS_RAW}/calendar
@@ -105,7 +136,25 @@ data_prep)
     "${JOBS_DIR}/data_prep/mapper.py" \
     "${JOBS_DIR}/data_prep/reducer.py" \
     "${INPUT_PATH}" \
-    "${HDFS_CLEAN}"
+    "${HDFS_CLEAN_listings}"
+  ;;
+prep_reviews)
+  submit_job \
+    "prep_reviews" \
+    "airbnb-prep-reviews" \
+    "${JOBS_DIR}/prep_reviews/mapper.py" \
+    "${JOBS_DIR}/prep_reviews/reducer.py" \
+    "${HDFS_RAW}/reviews" \
+    "${HDFS_CLEAN_reviews}"
+  ;;
+prep_calendar)
+  submit_job \
+    "prep_calendar" \
+    "airbnb-prep-calendar" \
+    "${JOBS_DIR}/prep_calendar/mapper.py" \
+    "${JOBS_DIR}/prep_calendar/reducer.py" \
+    "${HDFS_RAW}/calendar" \
+    "${HDFS_CLEAN_calendar}"
   ;;
 avg_by_nb_rt)
   submit_job \
@@ -113,7 +162,7 @@ avg_by_nb_rt)
     "airbnb-avg-by-nb-rt" \
     "${JOBS_DIR}/job_avg/mapper.py" \
     "${JOBS_DIR}/job_avg/reducer.py" \
-    "${HDFS_CLEAN}" \
+    "${HDFS_CLEAN_listings}" \
     "${HDFS_AVG}"
   ;;
 budget_supply)
@@ -122,7 +171,7 @@ budget_supply)
     "airbnb-budget-supply" \
     "${JOBS_DIR}/job_budget/mapper.py" \
     "${JOBS_DIR}/job_budget/reducer.py" \
-    "${HDFS_CLEAN}" \
+    "${HDFS_CLEAN_listings}" \
     "${HDFS_BUDGET}"
   ;;
 budget_supply_ranked)
@@ -133,6 +182,51 @@ budget_supply_ranked)
     "${JOBS_DIR}/job_rank/reducer.py" \
     "${HDFS_BUDGET}" \
     "${HDFS_BUDGET_RANK}"
+  ;;
+join_listings_reviews)
+  submit_job_multi_input \
+    "join_listings_reviews" \
+    "airbnb-join-listings-reviews" \
+    "${JOBS_DIR}/join_listings_reviews/mapper.py" \
+    "${JOBS_DIR}/join_listings_reviews/reducer.py" \
+    "${HDFS_CLEAN_listings}::${HDFS_CLEAN_reviews}" \
+    "${HDFS_REVIEWS_BY_NB}.raw"
+  ;;
+agg_nb_counts)
+  submit_job \
+    "agg_nb_counts" \
+    "airbnb-agg-nb-counts" \
+    "${JOBS_DIR}/agg_sum/mapper.py" \
+    "${JOBS_DIR}/agg_sum/reducer.py" \
+    "${HDFS_REVIEWS_BY_NB}.raw" \
+    "${HDFS_REVIEWS_BY_NB}"
+  ;;
+cal_rollup_per_listing)
+  submit_job \
+    "cal_rollup_per_listing" \
+    "airbnb-cal-rollup-per-listing" \
+    "${JOBS_DIR}/cal_rollup/mapper.py" \
+    "${JOBS_DIR}/cal_rollup/reducer.py" \
+    "${HDFS_CLEAN_calendar}" \
+    "${HDFS_CAL_ROLLUP_PER_LISTING}"
+  ;;
+join_listings_calendar)
+  submit_job_multi_input \
+    "join_listings_calendar" \
+    "airbnb-join-listings-calendar" \
+    "${JOBS_DIR}/join_listings_calendar/mapper.py" \
+    "${JOBS_DIR}/join_listings_calendar/reducer.py" \
+    "${HDFS_CLEAN_listings}::${HDFS_CAL_ROLLUP_PER_LISTING}" \
+    "${HDFS_OCCUPANCY_BY_NB}.raw"
+  ;;
+agg_occupancy_by_nb)
+  submit_job \
+    "agg_occupancy_by_nb" \
+    "airbnb-agg-occupancy-by-nb" \
+    "${JOBS_DIR}/agg_two_ints/mapper.py" \
+    "${JOBS_DIR}/agg_two_ints/reducer.py" \
+    "${HDFS_OCCUPANCY_BY_NB}.raw" \
+    "${HDFS_OCCUPANCY_BY_NB}"
   ;;
 *)
   usage

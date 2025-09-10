@@ -1,0 +1,13 @@
+# Local data and logs
+airbnb_map_reduce/data/
+airbnb_map_reduce/logs/
+airbnb_map_reduce/tmp/
+
+# Local environment overrides
+airbnb_map_reduce/config/env.local
+
+# OS/editor files
+.DS_Store
+*.swp
+*.swo
+*.tmp

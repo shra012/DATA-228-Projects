@@ -64,5 +64,4 @@ If these echo the correct paths, your environment is ready.
 ---
 
 ⚡ **Tip:**  
-You can copy `config/env.example` to `config/env.local` and override only your machine-specific settings there, while keeping `env.sh` version-controlled and clean.
-
+`env.sh` auto-detects the repo root and will source `config/env.local` if present. Copy `config/env.example` to `config/env.local` and override only your machine-specific settings there.
