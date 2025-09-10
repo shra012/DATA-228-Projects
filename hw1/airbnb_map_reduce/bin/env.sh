@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # HDFS namespace
-export HDFS_NS="/projects/DATA-228-Projects/hw1/airbnb_sf_map_reduce"
+export HDFS_NS="/projects/DATA-228-Projects/hw1/airbnb_map_reduce"
 export HDFS_RAW="${HDFS_NS}/raw"
 export HDFS_CLEAN="${HDFS_NS}/clean"
 export HDFS_AVG="${HDFS_NS}/avg_by_nb_rt"
@@ -10,7 +10,7 @@ export HDFS_BUDGET="${HDFS_NS}/budget_supply"
 export HDFS_BUDGET_RANK="${HDFS_NS}/budget_supply_ranked"
 
 # Local project root (adjust if you move it)
-export PROJ_ROOT="/home/cloud_user/DATA-228-Projects/hw1/airbnb_sf_map_reduce"
+export PROJ_ROOT="/home/cloud_user/DATA-228-Projects/hw1/airbnb_map_reduce"
 export BIN_DIR="${PROJ_ROOT}/bin"
 export JOBS_DIR="${PROJ_ROOT}/jobs"
 export DATA_DIR="${PROJ_ROOT}/data"

@@ -5,7 +5,7 @@ Before running the pipeline, configure `bin/env.sh` so it points to the correct 
 ## 1. Locate env.sh
 The file lives in:
 ```
-airbnb_sf_map_reduce/bin/env.sh
+airbnb_map_reduce/bin/env.sh
 ```
 
 ## 2. Open in an editor
@@ -17,13 +17,13 @@ nano bin/env.sh
 
 - **Project root on local machine**
   ```bash
-  export PROJ_ROOT="/home/<your-username>/DATA-228-Projects/hw1/airbnb_sf_map_reduce"
+  export PROJ_ROOT="/home/<your-username>/DATA-228-Projects/hw1/airbnb_map_reduce"
   ```
   Replace `<your-username>` with your actual Linux username or the absolute path where you cloned the repo.
 
 - **HDFS namespace**
   ```bash
-  export HDFS_NS="/projects/DATA-228-Projects/hw1/airbnb_sf_map_reduce"
+  export HDFS_NS="/projects/DATA-228-Projects/hw1/airbnb_map_reduce"
   ```
   If your cluster uses a different base path, update accordingly.
 

@@ -15,7 +15,7 @@ The project is designed for **step-by-step execution** via `make`, and can proce
 ## 📂 Project Organization
 
 ```
-airbnb_sf_map_reduce/
+airbnb_map_reduce/
 ├─ bin/                     # Executable scripts
 │  ├─ env.sh                # Shared environment variables (HDFS paths, dirs)
 │  ├─ hdfs_init.sh          # Initializes HDFS namespace
@@ -43,7 +43,7 @@ airbnb_sf_map_reduce/
 All data is stored under:
 
 ```
-/projects/DATA-228-Projects/hw1/airbnb_sf_map_reduce
+/projects/DATA-228-Projects/hw1/airbnb_map_reduce
 ```
 
 Subdirectories:

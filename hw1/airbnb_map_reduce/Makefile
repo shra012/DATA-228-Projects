@@ -36,7 +36,7 @@ quick: data_prep avg
 # Remove only MR outputs (safe to re-run)
 clean_outputs:
 	hdfs dfs -rm -r -skipTrash \
-	  /projects/DATA-228-Projects/hw1/airbnb_sf_map_reduce/clean \
-	  /projects/DATA-228-Projects/hw1/airbnb_sf_map_reduce/avg_by_nb_rt \
-	  /projects/DATA-228-Projects/hw1/airbnb_sf_map_reduce/budget_supply \
-	  /projects/DATA-228-Projects/hw1/airbnb_sf_map_reduce/budget_supply_ranked || true
+	  /projects/DATA-228-Projects/hw1/airbnb_map_reduce/clean \
+	  /projects/DATA-228-Projects/hw1/airbnb_map_reduce/avg_by_nb_rt \
+	  /projects/DATA-228-Projects/hw1/airbnb_map_reduce/budget_supply \
+	  /projects/DATA-228-Projects/hw1/airbnb_map_reduce/budget_supply_ranked || true
