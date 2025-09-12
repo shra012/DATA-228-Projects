@@ -1,45 +1,48 @@
 #!/usr/bin/env python3
 """
-Reducer for Reviews per Listing per Month.
+Reducer for Reviews per Listing per Month (reduce-side join).
 
-Input lines from mapper:
-  "<listing_id>|<yyyy-mm>\t1"
+Input values per listing_id:
+  L  <neighbourhood>  <room_type>
+  R  <yyyy-mm>        <review_id>
 
-Output:
-  listing_id\tyyyy-mm\ttotal_reviews
+Output (sorted by yyyy-mm for each listing_id):
+  listing_id  neighbourhood  room_type  yyyy-mm  review_id
 """
 import sys
 
-current_key = None
-acc = 0
+current = None
+nb = ""
+rt = ""
+reviews = [] 
 
-def flush(k, v):
-    if not k:
+def flush(lid, nb, rt, reviews):
+    if not lid:
         return
-    # Split compound key back to fields
-    if "|" in k:
-        lid, ym = k.split("|", 1)
-    else:
-        lid, ym = k, ""
-    if not lid or not ym:
-        return
-    print(f"{lid}\t{ym}\t{v}")
+ 
+    reviews.sort(key=lambda x: (x[0], x[1]))
+    for ym, rid in reviews:
+        print(f"{lid}\t{nb}\t{rt}\t{ym}\t{rid}")
 
 for line in sys.stdin:
-    parts = line.rstrip("\n").split("\t", 1)
-    if len(parts) != 2:
+    parts = line.rstrip("\n").split("\t")
+    if len(parts) < 3:
         continue
-    k, v = parts
-    try:
-        v = int(v)
-    except Exception:
-        continue
+    lid, tag = parts[0], parts[1]
 
-    if k != current_key:
-        flush(current_key, acc)
-        current_key, acc = k, v
-    else:
-        acc += v
+    if lid != current:
+        flush(current, nb, rt, reviews)
+        current, nb, rt, reviews = lid, "", "", []
 
-flush(current_key, acc)
+    if tag == 'L':
+        # L  nb  rt
+        nb = parts[2] if len(parts) > 2 else nb
+        rt = parts[3] if len(parts) > 3 else rt
+    elif tag == 'R':
+        # R  ym  rid
+        ym = parts[2] if len(parts) > 2 else ""
+        rid = parts[3] if len(parts) > 3 else ""
+        if ym:
+            reviews.append((ym, rid))
 
+flush(current, nb, rt, reviews)

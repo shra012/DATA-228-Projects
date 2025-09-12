@@ -1,16 +1,14 @@
 #!/usr/bin/env python3
 """
-Mapper for Reviews per Listing per Month.
+Mapper for Reviews per Listing per Month (reduce-side join).
 
-Input (from clean_reviews TSV):
-  listing_id\tdate\tyyyy-mm
+Accepts mixed inputs:
+  - Cleaned listings TSV (11 cols): listing_id, neighbourhood, room_type, ...
+  - Cleaned reviews TSV (4 cols):   listing_id, review_id, date, yyyy-mm
 
-Emits:
-  key:   "<listing_id>|<yyyy-mm>"
-  value: 1
-
-Using a compound key keeps Hadoop Streaming defaults simple (no custom
-partitioner or key field count needed).
+Emits by listing_id with a tag so the reducer can join:
+  L records: "<lid>\tL\t<neighbourhood>\t<room_type>"
+  R records: "<lid>\tR\t<yyyy-mm>\t<review_id>"
 """
 import sys
 
@@ -19,18 +17,25 @@ for line in sys.stdin:
     if not parts:
         continue
     try:
-        lid = (parts[0] or "").strip()
-        if not lid:
-            continue
-        # Prefer the precomputed yyyy-mm field if present, else derive from date
-        ym = (parts[2] if len(parts) > 2 else "").strip()
-        if not ym and len(parts) > 1:
-            d = (parts[1] or "").strip()
-            ym = d[:7] if len(d) >= 7 else ""
-        if not ym:
-            continue
-        print(f"{lid}|{ym}\t1")
+        if len(parts) == 11:
+            # listings clean TSV
+            lid = (parts[0] or "").strip()
+            nb  = (parts[1] or "").strip()
+            rt  = (parts[2] or "").strip()
+            if lid and (nb or rt):
+                print(f"{lid}\tL\t{nb}\t{rt}")
+        elif len(parts) >= 4:
+            # reviews clean TSV (listing_id, review_id, date, yyyy-mm)
+            lid = (parts[0] or "").strip()
+            rid = (parts[1] or "").strip()
+            ym  = (parts[3] or "").strip()
+            if lid and ym:
+                print(f"{lid}\tR\t{ym}\t{rid}")
+        else:
+            # Back-compat: prior 3-col reviews (listing_id, date, yyyy-mm)
+            lid = (parts[0] or "").strip()
+            ym = (parts[2] if len(parts) > 2 else "").strip()
+            if lid and ym:
+                print(f"{lid}\tR\t{ym}\t")
     except Exception:
-        # Skip malformed lines
         continue
-

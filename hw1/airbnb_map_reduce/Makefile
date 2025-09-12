@@ -9,7 +9,7 @@ SELF := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
 .PHONY: help init fetch check data_prep avg budget rank all quick clean_outputs \
         prep_reviews prep_calendar reviews_by_nb occupancy \
-        reviews_per_listing_month
+        reviews_per_listing_month reviews_per_listing_month_balanced
 
 help:
 	@echo "Airbnb MapReduce — common targets:"
@@ -19,7 +19,8 @@ help:
 	@echo "  make data_prep RAW=...  # clean listings (default: listings); use prep_reviews/prep_calendar for others"
 	@echo "  make avg|budget|rank     # analytics on cleaned listings"
 	@echo "  make reviews_by_nb       # listings ⨝ reviews → counts per neighbourhood"
-	@echo "  make reviews_per_listing_month # reviews → counts per listing per month"
+	@echo "  make reviews_per_listing_month # listings ⨝ reviews → per listing per month (join)"
+	@echo "  make reviews_per_listing_month_balanced # same with partitioner for secondary sort"
 	@echo "  make occupancy           # listings ⨝ calendar → booked/total per neighbourhood"
 	@echo "  make clean_outputs       # remove MR outputs so jobs can re-run"
 	@echo "  make all RAW=...         # run pipeline (no init/fetch); RAW=listings|reviews|calendar|all"
@@ -96,6 +97,7 @@ clean_outputs:
 	    "$$HDFS_REVIEWS_BY_NB" \
 	    "$$HDFS_REVIEWS_BY_NB.raw" \
 	    "$$HDFS_REVIEWS_PER_LISTING_MONTH" \
+        "$$HDFS_REVIEWS_PER_LISTING_MONTH_BALANCED" \
 	    "$$HDFS_CAL_ROLLUP_PER_LISTING" \
 	    "$$HDFS_OCCUPANCY_BY_NB" \
 	    "$$HDFS_OCCUPANCY_BY_NB.raw" || true'
@@ -113,11 +115,14 @@ reviews_by_nb: prep_reviews data_prep
 	bash $(SELF)bin/run.sh agg_nb_counts
 
 # Cross-file: occupancy proxy by neighbourhood (booked/total days)
-	occupancy: prep_calendar data_prep
-		bash $(SELF)bin/run.sh cal_rollup_per_listing
-		bash $(SELF)bin/run.sh join_listings_calendar
-		bash $(SELF)bin/run.sh agg_occupancy_by_nb
+occupancy: prep_calendar data_prep
+	bash $(SELF)bin/run.sh cal_rollup_per_listing
+	bash $(SELF)bin/run.sh join_listings_calendar
+	bash $(SELF)bin/run.sh agg_occupancy_by_nb
 
 # Reviews per listing per month (no join)
-reviews_per_listing_month: prep_reviews
+reviews_per_listing_month: prep_reviews data_prep
 	bash $(SELF)bin/run.sh reviews_per_listing_month
+
+reviews_per_listing_month_balanced: prep_reviews data_prep
+	bash $(SELF)bin/run.sh reviews_per_listing_month_balanced

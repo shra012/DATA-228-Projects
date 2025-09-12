@@ -23,6 +23,7 @@ export HDFS_REVIEWS_BY_NB="${HDFS_REVIEWS_BY_NB:-${HDFS_NS}/reviews_by_neighbour
 export HDFS_CAL_ROLLUP_PER_LISTING="${HDFS_CAL_ROLLUP_PER_LISTING:-${HDFS_NS}/calendar_rollup_per_listing}"
 export HDFS_OCCUPANCY_BY_NB="${HDFS_OCCUPANCY_BY_NB:-${HDFS_NS}/occupancy_by_neighbourhood}"
 export HDFS_REVIEWS_PER_LISTING_MONTH="${HDFS_REVIEWS_PER_LISTING_MONTH:-${HDFS_NS}/reviews_per_listing_month}"
+export HDFS_REVIEWS_PER_LISTING_MONTH_BALANCED="${HDFS_REVIEWS_PER_LISTING_MONTH_BALANCED:-${HDFS_NS}/reviews_per_listing_month_balanced}"
 
 # Local project paths
 export BIN_DIR="${BIN_DIR:-${PROJ_ROOT}/bin}"

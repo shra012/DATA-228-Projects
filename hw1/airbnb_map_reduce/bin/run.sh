@@ -65,7 +65,7 @@ submit_job_multi_input() {
 
 usage() {
   cat <<EOF
-Usage: $0 {data_prep|avg_by_nb_rt|budget_supply|budget_supply_ranked|prep_reviews|prep_calendar|join_listings_reviews|agg_nb_counts|cal_rollup_per_listing|join_listings_calendar|agg_occupancy_by_nb|reviews_per_listing_month} [--input=listings|reviews|calendar|all]
+Usage: $0 {data_prep|avg_by_nb_rt|budget_supply|budget_supply_ranked|prep_reviews|prep_calendar|join_listings_reviews|agg_nb_counts|cal_rollup_per_listing|join_listings_calendar|agg_occupancy_by_nb|reviews_per_listing_month|reviews_per_listing_month_balanced} [--input=listings|reviews|calendar|all]
 
 Notes:
   --input (or -i) applies only to 'data_prep'. Default: listings
@@ -229,13 +229,37 @@ agg_occupancy_by_nb)
     "${HDFS_OCCUPANCY_BY_NB}"
   ;;
 reviews_per_listing_month)
-  submit_job \
+  submit_job_multi_input \
     "reviews_per_listing_month" \
     "airbnb-reviews-per-listing-month" \
     "${JOBS_DIR}/reviews_per_listing_month/mapper.py" \
     "${JOBS_DIR}/reviews_per_listing_month/reducer.py" \
-    "${HDFS_CLEAN_reviews}" \
+    "${HDFS_CLEAN_listings}::${HDFS_CLEAN_reviews}" \
     "${HDFS_REVIEWS_PER_LISTING_MONTH}"
+  ;;
+reviews_per_listing_month_balanced)
+  # Custom invocation to add partitioner for secondary sort pattern
+  hdfs dfs -rm -r -skipTrash "${HDFS_REVIEWS_PER_LISTING_MONTH_BALANCED}" >/dev/null 2>&1 || true
+  ts="$(date +%F_%H%M%S)"
+  main_log="${LOGS_DIR}/reviews_per_listing_month_balanced_${ts}.log"
+  IFS='::' read -r -a inputs <<<"${HDFS_CLEAN_listings}::${HDFS_CLEAN_reviews}"
+  input_flags=()
+  for p in "${inputs[@]}"; do [[ -n "$p" ]] && input_flags+=( -input "$p" ); done
+
+  log "Running reviews_per_listing_month_balanced with partitioner by listing_id"
+  hadoop jar ${HSTREAM_JAR} \
+    -D mapreduce.job.name="airbnb-reviews-per-listing-month-balanced" \
+    -D mapreduce.job.reduces=12 \
+    -D stream.num.map.output.key.fields=2 \
+    -partitioner org.apache.hadoop.mapred.lib.KeyFieldBasedPartitioner \
+    -D mapreduce.partition.keypartitioner.options=-k1,1 \
+    -files "${JOBS_DIR}/reviews_per_listing_month_balanced/mapper.py,${JOBS_DIR}/reviews_per_listing_month_balanced/reducer.py" \
+    -mapper "python3 $(basename ${JOBS_DIR}/reviews_per_listing_month_balanced/mapper.py)" \
+    -reducer "python3 $(basename ${JOBS_DIR}/reviews_per_listing_month_balanced/reducer.py)" \
+    "${input_flags[@]}" \
+    -output "${HDFS_REVIEWS_PER_LISTING_MONTH_BALANCED}" |& tee "${main_log}"
+  log "Driver log saved: ${main_log}"
+  echo
   ;;
 *)
   usage

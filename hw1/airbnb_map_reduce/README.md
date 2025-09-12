@@ -25,7 +25,7 @@ airbnb_map_reduce/
 │  └─ run_all.sh            # Runs the full pipeline end-to-end
 ├─ jobs/                    # Hadoop Streaming jobs (mapper + reducer)
 │  ├─ data_prep/            # Cleans raw listings → normalized TSV (11 cols)
-│  ├─ prep_reviews/         # Cleans reviews → (listing_id, date, yyyy-mm)
+│  ├─ prep_reviews/         # Cleans reviews → (listing_id, review_id, date, yyyy-mm)
 │  ├─ prep_calendar/        # Cleans calendar → (listing_id, date, avail, price)
 │  ├─ job_avg/              # Computes average price per neighborhood × room type
 │  ├─ job_budget/           # Identifies affordable supply
@@ -58,7 +58,7 @@ These are the runnable job keys (as used by `bin/run.sh`) and their outputs:
 - budget_supply_ranked: neighbourhoods ranked by budget supply → `budget_supply_ranked/`
 - join_listings_reviews: listings ⨝ reviews → intermediate → `reviews_by_neighbourhood.raw/`
 - agg_nb_counts: aggregate intermediate review counts → `reviews_by_neighbourhood/`
-- reviews_per_listing_month: reviews only → `reviews_per_listing_month/`
+- reviews_per_listing_month: listings ⨝ reviews (reduce-side join) → `reviews_per_listing_month/`
 - cal_rollup_per_listing: booked/total day counts per listing → `calendar_rollup_per_listing/`
 - join_listings_calendar: listings ⨝ calendar rollups → intermediate → `occupancy_by_neighbourhood.raw/`
 - agg_occupancy_by_nb: aggregate to booked/total per neighbourhood → `occupancy_by_neighbourhood/`
@@ -87,7 +87,7 @@ Subdirectories:
 - `budget_supply/` → supply of budget listings
 - `budget_supply_ranked/` → ranking of budget supply results
 - `reviews_by_neighbourhood/` → total reviews per neighbourhood
-- `reviews_per_listing_month/` → per-listing monthly review counts
+- `reviews_per_listing_month/` → per-listing monthly review rows with neighbourhood and room_type
 - `calendar_rollup_per_listing/` → per-listing booked/total day counts
 - `occupancy_by_neighbourhood/` → nb-level booked/total day counts
   - intermediates: `reviews_by_neighbourhood.raw/`, `occupancy_by_neighbourhood.raw/`
@@ -181,7 +181,7 @@ Subdirectories:
   ```
 
 - **Cleaned Reviews (`clean_reviews/`)**: compact TSV for joins  
-  Schema: `listing_id  date  yyyy-mm`  
+  Schema: `listing_id  review_id  date  yyyy-mm`  
   Example:  
   ```
   12345678	2023-09-10	2023-09
@@ -224,12 +224,12 @@ Subdirectories:
   mission district	1245
   ```
 
-- **Reviews per Listing per Month (`reviews_per_listing_month/`)**: counts of review events grouped by listing and year-month  
-  Pipeline: from clean_reviews only  
-  Schema: `listing_id  yyyy-mm  total_reviews`  
+- **Reviews per Listing per Month (`reviews_per_listing_month/`)**: reduce-side join attaching neighbourhood and room type to every review month.  
+  Pipeline: clean_listings ⨝ clean_reviews  
+  Schema: `listing_id  neighbourhood  room_type  yyyy-mm  review_id`  
   Example:  
   ```
-  12345678	2023-09	3
+  12345678	mission district	Entire home/apt	2023-09	987654321
   ```
 
 - **Calendar Rollup Per Listing (`calendar_rollup_per_listing/`)**: booked/total days per listing  
@@ -264,7 +264,7 @@ Subdirectories:
 | `make all`          | Run the pipeline (preflight only; no init/fetch)                             |
 | `make quick`        | Shortcut: data_prep + avg                                                   |
 | `make reviews_by_nb`| Listings ⨝ reviews → total reviews per neighbourhood                        |
-| `make reviews_per_listing_month` | Reviews → per listing per month counts                         |
+| `make reviews_per_listing_month` | Listings ⨝ reviews → per listing per month rows                |
 | `make occupancy`    | Listings ⨝ calendar → booked/total days per neighbourhood                   |
 | `make clean_outputs`| Remove MR output dirs so jobs can be re-run without HDFS conflicts         |
 
