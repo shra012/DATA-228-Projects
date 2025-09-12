@@ -1,5 +1,5 @@
-# bin/env.sh
-set -euo pipefail
+#!/usr/bin/env bash
+set -eo pipefail
 
 # Resolve repo root relative to this file, unless PROJ_ROOT already set
 _THIS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
@@ -22,6 +22,7 @@ export HDFS_CLEAN_calendar="${HDFS_CLEAN_calendar:-${HDFS_NS}/clean_calendar}"
 export HDFS_REVIEWS_BY_NB="${HDFS_REVIEWS_BY_NB:-${HDFS_NS}/reviews_by_neighbourhood}"
 export HDFS_CAL_ROLLUP_PER_LISTING="${HDFS_CAL_ROLLUP_PER_LISTING:-${HDFS_NS}/calendar_rollup_per_listing}"
 export HDFS_OCCUPANCY_BY_NB="${HDFS_OCCUPANCY_BY_NB:-${HDFS_NS}/occupancy_by_neighbourhood}"
+export HDFS_REVIEWS_PER_LISTING_MONTH="${HDFS_REVIEWS_PER_LISTING_MONTH:-${HDFS_NS}/reviews_per_listing_month}"
 
 # Local project paths
 export BIN_DIR="${BIN_DIR:-${PROJ_ROOT}/bin}"
@@ -36,7 +37,7 @@ if [[ -f "${PROJ_ROOT}/config/env.local" ]]; then
   source "${PROJ_ROOT}/config/env.local"
 fi
 
-# Hadoop streaming JAR (let the shell expand the wildcard; don’t quote)
+# Hadoop streaming JAR (let the shell expand the wildcard; don't quote)
 export HSTREAM_JAR=${HSTREAM_JAR:-${HADOOP_HOME}/share/hadoop/tools/lib/hadoop-streaming-*.jar}
 
 # Defaults for data fetch (can be overridden per-invocation)

@@ -65,7 +65,7 @@ submit_job_multi_input() {
 
 usage() {
   cat <<EOF
-Usage: $0 {data_prep|avg_by_nb_rt|budget_supply|budget_supply_ranked|prep_reviews|prep_calendar|join_listings_reviews|agg_nb_counts|cal_rollup_per_listing|join_listings_calendar|agg_occupancy_by_nb} [--input=listings|reviews|calendar|all]
+Usage: $0 {data_prep|avg_by_nb_rt|budget_supply|budget_supply_ranked|prep_reviews|prep_calendar|join_listings_reviews|agg_nb_counts|cal_rollup_per_listing|join_listings_calendar|agg_occupancy_by_nb|reviews_per_listing_month} [--input=listings|reviews|calendar|all]
 
 Notes:
   --input (or -i) applies only to 'data_prep'. Default: listings
@@ -227,6 +227,15 @@ agg_occupancy_by_nb)
     "${JOBS_DIR}/agg_two_ints/reducer.py" \
     "${HDFS_OCCUPANCY_BY_NB}.raw" \
     "${HDFS_OCCUPANCY_BY_NB}"
+  ;;
+reviews_per_listing_month)
+  submit_job \
+    "reviews_per_listing_month" \
+    "airbnb-reviews-per-listing-month" \
+    "${JOBS_DIR}/reviews_per_listing_month/mapper.py" \
+    "${JOBS_DIR}/reviews_per_listing_month/reducer.py" \
+    "${HDFS_CLEAN_reviews}" \
+    "${HDFS_REVIEWS_PER_LISTING_MONTH}"
   ;;
 *)
   usage

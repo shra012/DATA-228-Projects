@@ -1,18 +1,19 @@
 # Airbnb MapReduce Project
 
-## 📌 Overview
+## Overview
 This project implements a small **MapReduce data pipeline** on Airbnb datasets using **Hadoop Streaming** with Python mappers and reducers.  
 It demonstrates how to:
 - **Ingest InsideAirbnb data** into HDFS
 - **Preprocess (clean) raw datasets**
 - **Compute aggregate metrics** (average price per neighborhood & room type)
 - **Evaluate budget supply and rank neighborhoods**
+ - **Join across datasets** to compute review counts and occupancy proxies
 
 The project is designed for **step-by-step execution** via `make`, and can process **listings, reviews, calendar, or all raw data**. Cross-file analytics (listings ⨝ reviews/calendar) are included.
 
 ---
 
-## 📂 Project Organization
+## Project Organization
 
 ```
 airbnb_map_reduce/
@@ -45,7 +46,28 @@ airbnb_map_reduce/
 
 ---
 
-## 🏗️ HDFS Namespace
+## MapReduce Jobs
+
+These are the runnable job keys (as used by `bin/run.sh`) and their outputs:
+
+- data_prep: cleans listings → `clean_listings/`
+- prep_reviews: cleans reviews → `clean_reviews/`
+- prep_calendar: cleans calendar → `clean_calendar/`
+- avg_by_nb_rt: average price by neighbourhood × room type → `avg_by_nb_rt/`
+- budget_supply: budget, short-stay supply per neighbourhood → `budget_supply/`
+- budget_supply_ranked: neighbourhoods ranked by budget supply → `budget_supply_ranked/`
+- join_listings_reviews: listings ⨝ reviews → intermediate → `reviews_by_neighbourhood.raw/`
+- agg_nb_counts: aggregate intermediate review counts → `reviews_by_neighbourhood/`
+- reviews_per_listing_month: reviews only → `reviews_per_listing_month/`
+- cal_rollup_per_listing: booked/total day counts per listing → `calendar_rollup_per_listing/`
+- join_listings_calendar: listings ⨝ calendar rollups → intermediate → `occupancy_by_neighbourhood.raw/`
+- agg_occupancy_by_nb: aggregate to booked/total per neighbourhood → `occupancy_by_neighbourhood/`
+
+Tip: You usually invoke the composed Make targets (`make reviews_by_nb`, `make occupancy`) which run the relevant join + aggregation steps in order.
+
+---
+
+## HDFS Namespace
 
 All data is stored under:
 
@@ -65,12 +87,14 @@ Subdirectories:
 - `budget_supply/` → supply of budget listings
 - `budget_supply_ranked/` → ranking of budget supply results
 - `reviews_by_neighbourhood/` → total reviews per neighbourhood
+- `reviews_per_listing_month/` → per-listing monthly review counts
 - `calendar_rollup_per_listing/` → per-listing booked/total day counts
 - `occupancy_by_neighbourhood/` → nb-level booked/total day counts
+  - intermediates: `reviews_by_neighbourhood.raw/`, `occupancy_by_neighbourhood.raw/`
 
 ---
 
-## ⚙️ Workflow
+## Workflow
 
 1. **Initialize HDFS tree**
    ```bash
@@ -101,17 +125,28 @@ Subdirectories:
    Note: `data_prep` is for listings. Use `prep_reviews` and `prep_calendar` for the other raw files.
 
 4. **Run analytics jobs**
-   ```bash
-   make avg     # computes average price by neighborhood & room type
-   make budget  # calculates budget supply
-  make rank    # ranks neighborhoods by budget supply
-  ```
+    ```bash
+    make avg     # computes average price by neighborhood & room type
+    make budget  # calculates budget supply
+    make rank    # ranks neighborhoods budget supply
+    ``` 
 
 5. **Cross-file analytics**
-   ```bash
-   make reviews_by_nb  # listings ⨝ reviews → total reviews per neighbourhood
-   make occupancy      # listings ⨝ calendar → booked/total days per neighbourhood
-   ```
+    ```bash
+    make reviews_by_nb  # listings ⨝ reviews → total reviews per neighbourhood
+    make occupancy      # listings ⨝ calendar → booked/total days per neighbourhood
+    ```
+    Under the hood these run:
+    ```bash
+    # Reviews by neighbourhood
+    bash airbnb_map_reduce/bin/run.sh join_listings_reviews
+    bash airbnb_map_reduce/bin/run.sh agg_nb_counts
+
+    # Occupancy by neighbourhood
+    bash airbnb_map_reduce/bin/run.sh cal_rollup_per_listing
+    bash airbnb_map_reduce/bin/run.sh join_listings_calendar
+    bash airbnb_map_reduce/bin/run.sh agg_occupancy_by_nb
+    ```
 
 6. **Full pipeline**
    ```bash
@@ -136,7 +171,7 @@ Subdirectories:
 
 ---
 
-## 📊 Outputs
+## Outputs
 
 - **Cleaned Listings (`clean_listings/`)**: normalized TSV with 11 columns  
   Schema: `listing_id  neighbourhood  room_type  price  min_nights  num_reviews  baths  bedrooms  beds  avail_30  avail_365`  
@@ -189,6 +224,14 @@ Subdirectories:
   mission district	1245
   ```
 
+- **Reviews per Listing per Month (`reviews_per_listing_month/`)**: counts of review events grouped by listing and year-month  
+  Pipeline: from clean_reviews only  
+  Schema: `listing_id  yyyy-mm  total_reviews`  
+  Example:  
+  ```
+  12345678	2023-09	3
+  ```
+
 - **Calendar Rollup Per Listing (`calendar_rollup_per_listing/`)**: booked/total days per listing  
   Pipeline: from clean_calendar → per-listing rollup  
   Schema: `listing_id  booked_days  total_days`  
@@ -207,7 +250,7 @@ Subdirectories:
 
 ---
 
-## 🧰 Make Targets
+## Make Targets
 
 | Target              | Description                                                                 |
 |---------------------|-----------------------------------------------------------------------------|
@@ -221,12 +264,13 @@ Subdirectories:
 | `make all`          | Run the pipeline (preflight only; no init/fetch)                             |
 | `make quick`        | Shortcut: data_prep + avg                                                   |
 | `make reviews_by_nb`| Listings ⨝ reviews → total reviews per neighbourhood                        |
-| `make occupancy`   | Listings ⨝ calendar → booked/total days per neighbourhood                    |
+| `make reviews_per_listing_month` | Reviews → per listing per month counts                         |
+| `make occupancy`    | Listings ⨝ calendar → booked/total days per neighbourhood                   |
 | `make clean_outputs`| Remove MR output dirs so jobs can be re-run without HDFS conflicts         |
 
 ---
 
-## ✅ What This Project Achieves
+## What This Project Achieves
 
 - **End-to-end MapReduce pipeline**: from raw CSV ingestion → cleaning → analytics → ranking.  
 - **Reproducible workflow**: via `make` targets and standardized HDFS layout.  

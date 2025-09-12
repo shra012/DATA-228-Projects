@@ -2,6 +2,12 @@
 
 Before running the pipeline, configure `bin/env.sh` so it points to the correct paths on your machine.
 
+## 0. Prerequisites
+- Python 3 available as `python3`
+- Java and Hadoop installed; `hadoop`/`hdfs` CLIs on `PATH`
+- `HADOOP_HOME` set to your Hadoop install
+- `curl` for fetching InsideAirbnb data
+
 ## 1. Locate env.sh
 The file lives in:
 ```
@@ -36,6 +42,21 @@ nano bin/env.sh
   echo $HADOOP_HOME
   ```
 
+- **Fetch defaults (new)**
+  These control `make fetch` and `bin/fetch_and_put.sh` when no args are provided:
+  ```bash
+  export COUNTRY_DEFAULT="united-states"
+  export STATE_DEFAULT="ca"
+  export COUNTY_DEFAULT="san-francisco"
+  export DATE_DEFAULT="$(date +%Y-%m-01)"  # YYYY-MM-01
+  ```
+  You can override them ad‑hoc on the command line, for example:
+  ```bash
+  COUNTRY_DEFAULT=ireland STATE_DEFAULT=leinster COUNTY_DEFAULT=dublin DATE_DEFAULT=2024-09-01 make fetch
+  # or pass explicit args to the script
+  bash airbnb_map_reduce/bin/fetch_and_put.sh united-states ca san-francisco 2024-09-01
+  ```
+
 - **Log, data, and jobs directories**
   These should normally be fine as-is, but confirm that the paths exist:
   ```bash
@@ -57,6 +78,9 @@ Run:
 echo $PROJ_ROOT
 echo $HDFS_NS
 echo $HSTREAM_JAR
+python3 --version
+hadoop version | head -n1
+hdfs dfs -ls / >/dev/null 2>&1 && echo "HDFS OK" || echo "HDFS not reachable"
 ```
 
 If these echo the correct paths, your environment is ready.
