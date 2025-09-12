@@ -46,6 +46,19 @@ airbnb_map_reduce/
 
 ---
 
+## Notebooks
+
+- `notebooks/outputs_overview.ipynb` — loads outputs of all jobs from HDFS (or sample fallbacks) and visualizes them with pandas/Seaborn.
+- `notebooks/analytics_viz.ipynb` — focused visuals for pricing and budget supply.
+
+Run with Jupyter from repo root, for example:
+
+```bash
+python3 -m jupyter notebook airbnb_map_reduce/notebooks/outputs_overview.ipynb
+```
+
+---
+
 ## MapReduce Jobs
 
 These are the runnable job keys (as used by `bin/run.sh`) and their outputs:

@@ -251,9 +251,9 @@ reviews_per_listing_month_balanced)
     -D mapreduce.job.name="airbnb-reviews-per-listing-month-balanced" \
     -D mapreduce.job.reduces=12 \
     -D stream.num.map.output.key.fields=2 \
-    -partitioner org.apache.hadoop.mapred.lib.KeyFieldBasedPartitioner \
     -D mapreduce.partition.keypartitioner.options=-k1,1 \
     -files "${JOBS_DIR}/reviews_per_listing_month_balanced/mapper.py,${JOBS_DIR}/reviews_per_listing_month_balanced/reducer.py" \
+    -partitioner org.apache.hadoop.mapred.lib.KeyFieldBasedPartitioner \
     -mapper "python3 $(basename ${JOBS_DIR}/reviews_per_listing_month_balanced/mapper.py)" \
     -reducer "python3 $(basename ${JOBS_DIR}/reviews_per_listing_month_balanced/reducer.py)" \
     "${input_flags[@]}" \
