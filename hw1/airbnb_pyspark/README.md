@@ -4,22 +4,16 @@ PySpark job for Santa Clara County Inside Airbnb data. Ingests listings, calenda
 
 ## Quick Start
 - Drop the raw snapshot at `data/raw/santa_clara_county/$DATASET_DATE/` (`listings.csv[.gz]`, `calendar.csv[.gz]`, `reviews.csv[.gz]`, `neighbourhoods.csv`).
-- Configure AWS CLI and update bucket, region, and key-pair values in `run_emr_job.sh`.
-- Use `.venv/bin/python` for local tooling; `run_emr_job.sh` handles bundling, uploads, and EMR submission.
+- Configure AWS CLI and update bucket, region, and key-pair values in `EMR/run_emr_job.sh`.
+- Use `.venv/bin/python` for local tooling; `EMR/run_emr_job.sh` handles bundling, uploads, and EMR submission.
 
 ## Commands
 Local Spark run
 ```bash
-JAVA_HOME=$(/usr/libexec/java_home -v 17) PYSPARK_PYTHON=.venv/bin/python spark-submit
-    --master local[*] airbnb_insights_job.py \
-    --listings data/raw/santa_clara_county/2025-06-23/listings.csv \
-    --calendar data/raw/santa_clara_county/2025-06-23/calendar.csv \
-    --reviews data/raw/santa_clara_county/2025-06-23/reviews.csv \
-    --neighbourhoods data/raw/santa_clara_county/2025-06-23/neighbourhoods.csv \
-    --output results --output-format parquet --coalesce 1
+JAVA_HOME=$(/usr/libexec/java_home -v 17) PYSPARK_PYTHON=.venv/bin/python spark-submit --master local[*] pypark/airbnb_insights_job.py --listings data/raw/santa_clara_county/2025-06-23/listings.csv --calendar data/raw/santa_clara_county/2025-06-23/calendar.csv --reviews data/raw/santa_clara_county/2025-06-23/reviews.csv --neighbourhoods data/raw/santa_clara_county/2025-06-23/neighbourhoods.csv --output results --output-format parquet --coalesce 1
 ```
-Launch EMR job `./run_emr_job.sh` </br>
-Monitor EMR job `./run_emr_job.sh monitor` </br>
+Launch EMR job `./EMR/run_emr_job.sh` </br>
+Monitor EMR job `./EMR/run_emr_job.sh monitor` </br>
 Pull results `aws s3 sync s3://$S3_BUCKET_DATA/airbnb/metrics/santa_clara_county/$DATASET_DATE/ results/`
 
 ## Outputs
@@ -39,10 +33,12 @@ Each metric is written to its own folder (Parquet by default):
 ## Project Layout
 ```
 .
-├── airbnb/              
-├── airbnb_insights_job.py
-├── run_emr_job.sh
-├── emr_job_config.json
+├── EMR/
+│   ├── emr_job_config.json
+│   └── run_emr_job.sh
+├── pypark/
+│   ├── airbnb/
+│   └── airbnb_insights_job.py
 └── data/raw/santa_clara_county/$DATASET_DATE/
     ├── listings.csv
     ├── calendar.csv

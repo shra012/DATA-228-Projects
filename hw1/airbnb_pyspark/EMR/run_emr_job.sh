@@ -5,6 +5,20 @@
 
 set -e  # Exit on any error
 
+# Resolve project locations now that the script lives under EMR/
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+PYSPARK_DIR="$PROJECT_ROOT/pypark"
+SCRIPT_ABS_PATH="$SCRIPT_DIR/$(basename "${BASH_SOURCE[0]}")"
+SCRIPT_RELPATH="${SCRIPT_ABS_PATH#$PROJECT_ROOT/}"
+if [[ "$SCRIPT_RELPATH" == "$SCRIPT_ABS_PATH" ]]; then
+    SCRIPT_COMMAND="${0:-run_emr_job.sh}"
+else
+    SCRIPT_COMMAND="./$SCRIPT_RELPATH"
+fi
+
+cd "$PROJECT_ROOT"
+
 S3_BUCKET_SCRIPTS="data228-emr-scripts-bucket-1"
 S3_BUCKET_DATA="data228-emr-data-bucket-1"
 S3_BUCKET_LOGS="data228-emr-logs-bucket-1"
@@ -18,6 +32,11 @@ OUTPUT_S3_PREFIX="airbnb/metrics/santa_clara_county/$DATASET_DATE"
 CLOUDWATCH_LOG_PREFIX="/aws/emr/airbnb-insights"
 # Bootstrap and configuration assets
 BOOTSTRAP_SCRIPT="configs/bootstrap.sh"
+# Dataset filenames will be resolved dynamically (handles .csv or .csv.gz)
+LISTINGS_FILE=""
+CALENDAR_FILE=""
+REVIEWS_FILE=""
+NEIGHBOURHOODS_FILE=""
 # Optional: Specify subnet ID if you don't want to use default VPC/subnets
 # EC2_SUBNET_ID="subnet-12345678"
 
@@ -37,6 +56,107 @@ print_warning() {
 
 print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
+}
+
+resolve_dataset_file() {
+    local base_name="$1"
+    local gz_path="$LOCAL_DATA_DIR/${base_name}.csv.gz"
+    local csv_path="$LOCAL_DATA_DIR/${base_name}.csv"
+
+    if [ -f "$gz_path" ]; then
+        echo "${base_name}.csv.gz"
+        return 0
+    fi
+
+    if [ -f "$csv_path" ]; then
+        echo "${base_name}.csv"
+        return 0
+    fi
+
+    print_error "Missing dataset file: $LOCAL_DATA_DIR/${base_name}.csv(.gz)"
+    return 1
+}
+
+initialize_dataset_files() {
+    LISTINGS_FILE=$(resolve_dataset_file "listings") || exit 1
+    CALENDAR_FILE=$(resolve_dataset_file "calendar") || exit 1
+    REVIEWS_FILE=$(resolve_dataset_file "reviews") || exit 1
+    NEIGHBOURHOODS_FILE=$(resolve_dataset_file "neighbourhoods") || exit 1
+
+    verify_dataset_contents "$LOCAL_DATA_DIR/$LISTINGS_FILE"
+    verify_dataset_contents "$LOCAL_DATA_DIR/$CALENDAR_FILE"
+    verify_dataset_contents "$LOCAL_DATA_DIR/$REVIEWS_FILE"
+    verify_dataset_contents "$LOCAL_DATA_DIR/$NEIGHBOURHOODS_FILE"
+
+    print_status "Using dataset files:"
+    print_status "  Listings: $LISTINGS_FILE"
+    print_status "  Calendar: $CALENDAR_FILE"
+    print_status "  Reviews: $REVIEWS_FILE"
+    print_status "  Neighbourhoods: $NEIGHBOURHOODS_FILE"
+}
+
+verify_dataset_contents() {
+    local path="$1"
+    local first_line
+
+    if [[ "$path" == *.gz ]]; then
+        if ! first_line=$(gunzip -c "$path" 2>/dev/null | head -n 1); then
+            print_error "Failed to read dataset: $path"
+            exit 1
+        fi
+    else
+        if ! first_line=$(head -n 1 "$path" 2>/dev/null); then
+            print_error "Failed to read dataset: $path"
+            exit 1
+        fi
+    fi
+
+    if [[ "$first_line" == "version https://git-lfs.github.com/spec/v1"* ]]; then
+        local rel_path="$path"
+        if [[ "$rel_path" == "$PROJECT_ROOT/"* ]]; then
+            rel_path="${rel_path#$PROJECT_ROOT/}"
+        fi
+
+        print_warning "Dataset file $rel_path is a Git LFS pointer; attempting to fetch real contents (git lfs pull --include=$rel_path)."
+        if fetch_git_lfs_object "$rel_path"; then
+            if [[ "$path" == *.gz ]]; then
+                first_line=$(gunzip -c "$path" 2>/dev/null | head -n 1 || true)
+            else
+                first_line=$(head -n 1 "$path" 2>/dev/null || true)
+            fi
+        fi
+
+        if [[ "$first_line" == "version https://git-lfs.github.com/spec/v1"* || -z "$first_line" ]]; then
+            print_error "Failed to hydrate Git LFS object for $rel_path. Run 'git lfs pull --include=$rel_path' manually and retry."
+            exit 1
+        fi
+    fi
+}
+
+fetch_git_lfs_object() {
+    local rel_path="$1"
+
+    if ! command -v git >/dev/null 2>&1; then
+        print_warning "git command not available; cannot fetch LFS object automatically."
+        return 1
+    fi
+
+    if ! git lfs version >/dev/null 2>&1; then
+        print_warning "git-lfs not installed; cannot fetch LFS object automatically."
+        return 1
+    fi
+
+    if [ "${GIT_LFS_BOOTSTRAPPED:-0}" -eq 0 ]; then
+        git lfs install --local >/dev/null 2>&1 || true
+        GIT_LFS_BOOTSTRAPPED=1
+    fi
+
+    if git lfs pull --include="$rel_path" >/dev/null 2>&1; then
+        print_status "Fetched Git LFS content for $rel_path"
+        return 0
+    fi
+
+    return 1
 }
 
 # Check if AWS CLI is configured
@@ -110,6 +230,9 @@ create_cloudwatch_log_groups() {
         "/aws/emr/airbnb-insights/spark-executor" 
         "/aws/emr/airbnb-insights/hadoop-yarn"
         "/aws/emr/airbnb-insights/hadoop-mapreduce"
+        "/aws/emr/airbnb-insights/steps"
+        "/aws/emr/airbnb-insights/yarn-stdout"
+        "/aws/emr/airbnb-insights/yarn-stderr"
     )
     
     for log_group in "${log_groups[@]}"; do
@@ -175,19 +298,27 @@ upload_files() {
 
     local script_bucket_path="s3://$S3_BUCKET_SCRIPTS"
     local data_bucket_path="s3://$S3_BUCKET_DATA/$DATA_S3_PREFIX"
-    local package_zip="airbnb_package.zip"
+    local package_zip="$PROJECT_ROOT/airbnb_package.zip"
 
     if [ ! -f "$BOOTSTRAP_SCRIPT" ]; then
         print_error "Bootstrap script not found: $BOOTSTRAP_SCRIPT"
         exit 1
     fi
 
-    aws s3 cp airbnb_insights_job.py "$script_bucket_path/"
+    if [ ! -f "$PYSPARK_DIR/airbnb_insights_job.py" ]; then
+        print_error "PySpark entrypoint not found: $PYSPARK_DIR/airbnb_insights_job.py"
+        exit 1
+    fi
+
+    aws s3 cp "$PYSPARK_DIR/airbnb_insights_job.py" "$script_bucket_path/"
     print_status "Uploaded airbnb_insights_job.py"
 
     print_status "Packaging shared Airbnb modules..."
     rm -f "$package_zip"
-    zip -r "$package_zip" airbnb -x "*.DS_Store" -x "__pycache__/*" >/dev/null
+    (
+        cd "$PYSPARK_DIR"
+        zip -r "$package_zip" airbnb -x "*.DS_Store" -x "__pycache__/*" >/dev/null
+    )
     aws s3 cp "$package_zip" "$script_bucket_path/"
     rm -f "$package_zip"
     print_status "Uploaded airbnb package archive"
@@ -259,10 +390,10 @@ create_job_step() {
             "--conf", "spark.yarn.submit.waitAppCompletion=true",
             "--py-files", "s3://$S3_BUCKET_SCRIPTS/airbnb_package.zip",
             "s3://$S3_BUCKET_SCRIPTS/airbnb_insights_job.py",
-            "--listings", "s3://$S3_BUCKET_DATA/$DATA_S3_PREFIX/listings.csv.gz",
-            "--calendar", "s3://$S3_BUCKET_DATA/$DATA_S3_PREFIX/calendar.csv.gz",
-            "--reviews", "s3://$S3_BUCKET_DATA/$DATA_S3_PREFIX/reviews.csv.gz",
-            "--neighbourhoods", "s3://$S3_BUCKET_DATA/$DATA_S3_PREFIX/neighbourhoods.csv",
+            "--listings", "s3://$S3_BUCKET_DATA/$DATA_S3_PREFIX/$LISTINGS_FILE",
+            "--calendar", "s3://$S3_BUCKET_DATA/$DATA_S3_PREFIX/$CALENDAR_FILE",
+            "--reviews", "s3://$S3_BUCKET_DATA/$DATA_S3_PREFIX/$REVIEWS_FILE",
+            "--neighbourhoods", "s3://$S3_BUCKET_DATA/$DATA_S3_PREFIX/$NEIGHBOURHOODS_FILE",
             "--output", "s3://$S3_BUCKET_DATA/$OUTPUT_S3_PREFIX",
             "--output-format", "parquet",
             "--coalesce", "1"
@@ -336,6 +467,9 @@ view_cloudwatch_logs() {
         "/aws/emr/airbnb-insights/spark-executor"
         "/aws/emr/airbnb-insights/hadoop-yarn"
         "/aws/emr/airbnb-insights/hadoop-mapreduce"
+        "/aws/emr/airbnb-insights/steps"
+        "/aws/emr/airbnb-insights/yarn-stdout"
+        "/aws/emr/airbnb-insights/yarn-stderr"
     )
     
     for log_group in "${log_groups[@]}"; do
@@ -360,7 +494,7 @@ download_cluster_logs() {
     
     # Check if cluster ID file exists
     if [ ! -f cluster_id.txt ]; then
-        print_error "No cluster_id.txt found. Run './run_emr_job.sh' first or './run_emr_job.sh monitor' to check current cluster."
+        print_error "No cluster_id.txt found. Run '$SCRIPT_COMMAND' first or '$SCRIPT_COMMAND monitor' to check current cluster."
         exit 1
     fi
     
@@ -483,7 +617,7 @@ DESCRIPTION:
     It handles cluster provisioning, Spark submission, log wiring, and automatic cleanup.
 
 USAGE:
-    ./run_emr_job.sh [COMMAND]
+    $SCRIPT_COMMAND [COMMAND]
 
 COMMANDS:
     (no arguments)  Submit a new EMR job and run the Airbnb insights pipeline
@@ -505,7 +639,7 @@ CONFIGURATION:
 
 PREREQUISITES:
     - AWS CLI configured with proper credentials
-    - airbnb_insights_job.py and the ./airbnb/ helper package available locally
+    - airbnb_insights_job.py and the ./airbnb/ helper package available locally (under pypark/)
     - Inside Airbnb extracts under $LOCAL_DATA_DIR (listings.csv.gz, calendar.csv.gz, reviews.csv.gz, neighbourhoods.csv)
     - configs/bootstrap.sh present (uploaded as the cluster bootstrap action)
     - SSH key pair at ~/.ssh/id_rsa.pub (auto-imported if missing)
@@ -519,11 +653,11 @@ WORKFLOW:
     6. Auto-terminates the cluster after job completion
 
 EXAMPLES:
-    ./run_emr_job.sh                    # Run the Airbnb insights job with default config
-    ./run_emr_job.sh monitor            # Monitor current job progress
-    ./run_emr_job.sh results            # View job outputs in S3
-    ./run_emr_job.sh logs               # View CloudWatch logs
-    ./run_emr_job.sh dlogs              # Download all S3 logs locally
+    $SCRIPT_COMMAND                    # Run the Airbnb insights job with default config
+    $SCRIPT_COMMAND monitor            # Monitor current job progress
+    $SCRIPT_COMMAND results            # View job outputs in S3
+    $SCRIPT_COMMAND logs               # View CloudWatch logs
+    $SCRIPT_COMMAND dlogs              # Download all S3 logs locally
     aws s3 sync s3://$S3_BUCKET_DATA/$OUTPUT_S3_PREFIX/ ./results/  # Download results
 
 EMR CONFIGURATION:
@@ -538,6 +672,9 @@ CLOUDWATCH LOG GROUPS:
     - /aws/emr/airbnb-insights/spark-executor
     - /aws/emr/airbnb-insights/hadoop-yarn
     - /aws/emr/airbnb-insights/hadoop-mapreduce
+    - /aws/emr/airbnb-insights/steps
+    - /aws/emr/airbnb-insights/yarn-stdout
+    - /aws/emr/airbnb-insights/yarn-stderr
 
 For more information, see the project README.md
 EOF
@@ -548,13 +685,13 @@ main() {
     print_status "Starting EMR Airbnb Insights Job"
     
     # Check if required files exist
-    if [ ! -f "airbnb_insights_job.py" ]; then
-        print_error "airbnb_insights_job.py not found in current directory"
+    if [ ! -f "$PYSPARK_DIR/airbnb_insights_job.py" ]; then
+        print_error "airbnb_insights_job.py not found under $PYSPARK_DIR"
         exit 1
     fi
 
-    if [ ! -d "airbnb" ]; then
-        print_error "airbnb helper package directory not found in current directory"
+    if [ ! -d "$PYSPARK_DIR/airbnb" ]; then
+        print_error "airbnb helper package directory not found under $PYSPARK_DIR"
         exit 1
     fi
 
@@ -564,13 +701,7 @@ main() {
         exit 1
     fi
 
-    local required_files=("listings.csv.gz" "calendar.csv.gz" "reviews.csv.gz" "neighbourhoods.csv")
-    for filename in "${required_files[@]}"; do
-        if [ ! -f "$LOCAL_DATA_DIR/$filename" ]; then
-            print_error "Missing dataset file: $LOCAL_DATA_DIR/$filename"
-            exit 1
-        fi
-    done
+    initialize_dataset_files
 
     # Execute job workflow
     check_aws_config
@@ -586,10 +717,10 @@ main() {
     print_status "Cluster ID saved to cluster_id.txt"
     print_status ""
     print_status "To monitor the job:"
-    print_status "  ./run_emr_job.sh monitor"
+    print_status "  $SCRIPT_COMMAND monitor"
     print_status ""
     print_status "To check results after completion:"
-    print_status "  ./run_emr_job.sh results"
+    print_status "  $SCRIPT_COMMAND results"
     
     cleanup
 }

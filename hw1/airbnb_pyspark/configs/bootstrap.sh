@@ -33,6 +33,26 @@ cat <<'CWCONFIG' | sudo tee /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwat
             "file_path": "/var/log/hadoop-mapreduce/mapred-*.log",
             "log_group_name": "/aws/emr/airbnb-insights/hadoop-mapreduce",
             "log_stream_name": "{instance_id}/mapreduce"
+          },
+          {
+            "file_path": "/var/log/hadoop/steps/*/stderr",
+            "log_group_name": "/aws/emr/airbnb-insights/steps",
+            "log_stream_name": "{instance_id}/steps-stderr-{file_name}"
+          },
+          {
+            "file_path": "/var/log/hadoop/steps/*/stdout",
+            "log_group_name": "/aws/emr/airbnb-insights/steps",
+            "log_stream_name": "{instance_id}/steps-stdout-{file_name}"
+          },
+          {
+            "file_path": "/var/log/hadoop-yarn/apps/*/*/stderr",
+            "log_group_name": "/aws/emr/airbnb-insights/yarn-stderr",
+            "log_stream_name": "{instance_id}/yarn-{file_name}"
+          },
+          {
+            "file_path": "/var/log/hadoop-yarn/apps/*/*/stdout",
+            "log_group_name": "/aws/emr/airbnb-insights/yarn-stdout",
+            "log_stream_name": "{instance_id}/yarn-{file_name}"
           }
         ]
       }
