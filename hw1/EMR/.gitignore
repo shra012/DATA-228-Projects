@@ -1,0 +1,9 @@
+.venv
+.github
+data
+.java-version
+airbnb.zip
+airbnb_package.zip
+cluster_id.txt
+results/
+__pycache__

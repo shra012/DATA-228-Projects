@@ -1,0 +1,88 @@
+{
+    "cluster_config": {
+        "Name": "emr-airbnb-insights-cluster",
+        "ReleaseLabel": "emr-7.10.0",
+        "Applications": [
+            {"Name": "Spark"},
+            {"Name": "Hadoop"}
+        ],
+        "Instances": {
+            "InstanceGroups": [
+                {
+                    "Name": "Master",
+                    "Market": "ON_DEMAND",
+                    "InstanceRole": "MASTER",
+                    "InstanceType": "m5.large",
+                    "InstanceCount": 1
+                },
+                {
+                    "Name": "Core",
+                    "Market": "ON_DEMAND",
+                    "InstanceRole": "CORE",
+                    "InstanceType": "m5.large",
+                    "InstanceCount": 2
+                }
+            ],
+            "Ec2KeyName": "emr-default-key",
+            "KeepJobFlowAliveWhenNoSteps": false,
+            "TerminationProtected": false
+        },
+        "ServiceRole": "EMR_DefaultRole",
+        "JobFlowRole": "EMR_EC2_DefaultRole",
+        "LogUri": "s3://data228-emr-logs-bucket/logs/",
+        "VisibleToAllUsers": true,
+        "Tags": [
+            {
+                "Key": "Environment",
+                "Value": "production"
+            },
+            {
+                "Key": "Project",
+                "Value": "Airbnb-Insights"
+            }
+        ]
+    },
+    "job_steps": [
+        {
+            "Name": "Airbnb Insights PySpark Job",
+            "ActionOnFailure": "TERMINATE_CLUSTER",
+            "HadoopJarStep": {
+                "Jar": "command-runner.jar",
+                "Args": [
+                    "spark-submit",
+                    "--deploy-mode",
+                    "cluster",
+                    "--master",
+                    "yarn",
+                    "--conf",
+                    "spark.yarn.submit.waitAppCompletion=true",
+                    "--py-files",
+                    "s3://data228-emr-scripts-bucket/airbnb_package.zip",
+                    "s3://data228-emr-scripts-bucket/airbnb_insights_job.py",
+                    "--listings",
+                    "s3://data228-emr-data-bucket/airbnb/raw/santa_clara_county/2025-06-23/listings.csv.gz",
+                    "--calendar",
+                    "s3://data228-emr-data-bucket/airbnb/raw/santa_clara_county/2025-06-23/calendar.csv.gz",
+                    "--reviews",
+                    "s3://data228-emr-data-bucket/airbnb/raw/santa_clara_county/2025-06-23/reviews.csv.gz",
+                    "--neighbourhoods",
+                    "s3://data228-emr-data-bucket/airbnb/raw/santa_clara_county/2025-06-23/neighbourhoods.csv",
+                    "--output",
+                    "s3://data228-emr-data-bucket/airbnb/metrics/santa_clara_county/2025-06-23",
+                    "--output-format",
+                    "parquet",
+                    "--coalesce",
+                    "1"
+                ]
+            }
+        }
+    ],
+    "bootstrap_actions": [
+        {
+            "Name": "Install Additional Packages",
+            "ScriptBootstrapAction": {
+                "Path": "s3://data228-emr-scripts-bucket/bootstrap.sh"
+            }
+        }
+    ]
+}
