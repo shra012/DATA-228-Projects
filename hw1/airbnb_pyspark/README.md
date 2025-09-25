@@ -1,6 +1,6 @@
 # Airbnb Insights
 
-PySpark job for Santa Clara County Inside Airbnb data. Ingests listings, calendar, reviews, and neighbourhood lookups, enriches them, and publishes ten metric tables for revenue, demand, compliance, and pricing decisions. Run locally for development or submit to EMR for production-scale runs.
+PySpark job for Santa Clara County Inside Airbnb data. Ingests listings, calendar, reviews, and neighbourhood lookups, enriches them, and publishes ten metric tables for revenue, demand, compliance, and pricing decisions. Run locally for development or submit to EMR/Azure Databricks/Google Colab for production-scale runs.
 
 ## Quick Start
 - Drop the raw snapshot at `data/raw/santa_clara_county/$DATASET_DATE/` (`listings.csv[.gz]`, `calendar.csv[.gz]`, `reviews.csv[.gz]`, `neighbourhoods.csv`).
