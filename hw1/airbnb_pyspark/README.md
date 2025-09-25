@@ -10,7 +10,13 @@ PySpark job for Santa Clara County Inside Airbnb data. Ingests listings, calenda
 ## Commands
 Local Spark run
 ```bash
-JAVA_HOME=$(/usr/libexec/java_home -v 17) PYSPARK_PYTHON=.venv/bin/python spark-submit --master local[*] pypark/airbnb_insights_job.py --listings data/raw/santa_clara_county/2025-06-23/listings.csv --calendar data/raw/santa_clara_county/2025-06-23/calendar.csv --reviews data/raw/santa_clara_county/2025-06-23/reviews.csv --neighbourhoods data/raw/santa_clara_county/2025-06-23/neighbourhoods.csv --output results --output-format parquet --coalesce 1
+JAVA_HOME=$(/usr/libexec/java_home -v 17) PYSPARK_PYTHON=.venv/bin/python spark-submit \
+ --master local[*] pypark/airbnb_insights_job.py \
+--listings data/raw/santa_clara_county/2025-06-23/listings.csv \
+--calendar data/raw/santa_clara_county/2025-06-23/calendar.csv \
+--reviews data/raw/santa_clara_county/2025-06-23/reviews.csv \
+--neighbourhoods data/raw/santa_clara_county/2025-06-23/neighbourhoods.csv \
+--output results --output-format parquet --coalesce 1
 ```
 Launch EMR job `./EMR/run_emr_job.sh` </br>
 Monitor EMR job `./EMR/run_emr_job.sh monitor` </br>
