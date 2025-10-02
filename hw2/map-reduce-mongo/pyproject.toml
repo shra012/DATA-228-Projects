@@ -1,0 +1,18 @@
+[project]
+name = "map-reduce-mongo"
+version = "0.1.0"
+description = "MongoDB MapReduce demonstration project"
+requires-python = ">=3.12"
+dependencies = [
+    "pymongo>=4.15,<5",
+]
+
+[project.scripts]
+map-reduce = "map_reduce:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+managed = true
