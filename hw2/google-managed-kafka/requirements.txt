@@ -1,0 +1,4 @@
+confluent-kafka==2.11.1
+faker==37.8.0
+google-auth==2.37.0
+python-dotenv==1.1.1
